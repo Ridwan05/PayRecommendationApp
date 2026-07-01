@@ -41,10 +41,27 @@ At https://supabase.com create a project. Then in **SQL Editor**, paste and run
 auto-calculated columns, and all security policies.
 
 ### 2. Create users and assign roles
-In Supabase **Authentication → Users → Add user**, create one user per person
-(email + password). A profile row is created automatically for each. Then in
-**SQL Editor** run [`supabase/seed_roles.sql`](supabase/seed_roles.sql) after
+In Supabase **Authentication → Users → Add user**, create one user per person by
+**email** (a password is required by the dialog but is never used — login is
+passwordless, see below). A profile row is created automatically for each. Then
+in **SQL Editor** run [`supabase/seed_roles.sql`](supabase/seed_roles.sql) after
 editing the emails to set who is `admin`, `ceo`, and `hr`. New users default to `hr`.
+
+### Passwordless login (magic link)
+There are no passwords. On the login page a user enters their email and Supabase
+emails them a one-time sign-in link; access is then based on their role. Only
+emails **already provisioned** above can log in (`shouldCreateUser: false`), so
+unknown addresses never receive a link.
+
+To make the links work, in Supabase set **Authentication → URL Configuration**:
+- **Site URL** = your app URL (e.g. `http://localhost:3000` or your Vercel URL)
+- Add `<app-url>/auth/callback` to **Redirect URLs**
+
+Email OTP is enabled by default; no email-template edits are required (the
+callback route at [`app/auth/callback/route.ts`](app/auth/callback/route.ts)
+handles both the `code` and `token_hash` link formats). For production email
+deliverability, configure a custom SMTP provider in Supabase (the built-in
+sender is rate-limited).
 
 ### 3. Environment variables
 Copy `.env.local.example` to `.env.local` and fill in from
