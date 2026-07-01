@@ -25,8 +25,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/" className="text-sm font-semibold text-brand">
-            Pay Recommendation App
+          <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-brand">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/dreef-logo.png" alt="Dreef" className="h-8 w-auto" />
+            <span>Pay Recommendation App</span>
           </Link>
           <div className="flex items-center gap-4">
             {canCreate && (

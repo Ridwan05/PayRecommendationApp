@@ -52,6 +52,8 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
       <div className="card w-full max-w-sm p-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/dreef-logo.png" alt="Dreef" className="mb-4 h-12 w-auto" />
         <h1 className="text-xl font-semibold text-brand">Pay Recommendation App</h1>
         <p className="mt-1 text-sm text-slate-500">
           {step === "email" ? "Sign in with your work email" : `Enter the code sent to ${email}`}
