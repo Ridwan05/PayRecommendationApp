@@ -104,9 +104,10 @@ async function emailForUser(userId: string | null): Promise<string[]> {
 // Public notification API — called from server actions.
 // ---------------------------------------------------------------------------
 
-// New or edited recommendation is now Pending → notify the CEO (and any admins).
+// New or edited recommendation is now Pending → notify the CEO only.
 export async function notifyCeoOfPending(rec: Recommendation, isNew: boolean) {
-  const to = Array.from(new Set([...(await emailsForRole("ceo")), ...(await emailsForRole("admin"))]));
+  // Only the CEO (the approver) is notified — admins are intentionally excluded.
+  const to = await emailsForRole("ceo");
   const verb = isNew ? "submitted" : "updated and resubmitted";
   const heading = "Recommendation awaiting your approval";
   const bodyText = `A pay recommendation for ${rec.staff_name} was ${verb} and is now pending your decision.`;
