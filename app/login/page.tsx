@@ -81,13 +81,13 @@ export default function LoginPage() {
             <div>
               <label className="label">6-digit code</label>
               <input
-                className="input tracking-[0.4em] text-center text-lg"
+                className="input tracking-[0.3em] text-center text-lg"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 required
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="••••••"
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="Enter the code from the email"
                 autoFocus
               />
             </div>
@@ -95,6 +95,7 @@ export default function LoginPage() {
             <button className="btn-primary w-full" disabled={loading || code.length < 6}>
               {loading ? "Verifying…" : "Verify & sign in"}
             </button>
+            {/* Supabase email OTP length is configurable (this project uses 8). */}
             <button
               type="button"
               className="btn-ghost w-full text-xs"
