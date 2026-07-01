@@ -31,17 +31,17 @@ export default async function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-lg font-semibold text-slate-900">Recommendations</h1>
-        <div className="flex gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <StatusBadge status="pending" /> <span className="text-slate-500">{counts.pending ?? 0}</span>
           <StatusBadge status="approved" /> <span className="text-slate-500">{counts.approved ?? 0}</span>
           <StatusBadge status="rejected" /> <span className="text-slate-500">{counts.rejected ?? 0}</span>
         </div>
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Candidate Name</th>
