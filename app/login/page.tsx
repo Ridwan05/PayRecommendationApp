@@ -1,55 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"email" | "code">("email");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
 
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("error") === "auth") {
-      setError("That sign-in link was invalid or has expired. Please request a new one.");
-    }
-  }, []);
-
-  async function onSubmit(e: React.FormEvent) {
+  async function sendCode(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        // Only pre-provisioned users may log in — never auto-create accounts.
-        shouldCreateUser: false,
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { shouldCreateUser: false }, // only pre-provisioned users
     });
     setLoading(false);
-    // Always show the same confirmation to avoid revealing which emails exist.
+    // Move to the code step regardless, so we don't reveal which emails exist.
     if (error && !/not allowed|signups|user not found/i.test(error.message)) {
       setError(error.message);
       return;
     }
-    setSent(true);
+    setStep("code");
+  }
+
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: code.trim(),
+      type: "email",
+    });
+    setLoading(false);
+    if (error) {
+      setError("That code is invalid or has expired. Request a new one.");
+      return;
+    }
+    router.push("/");
+    router.refresh();
   }
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
       <div className="card w-full max-w-sm p-6">
         <h1 className="text-xl font-semibold text-brand">Pay Recommendation App</h1>
-        <p className="mt-1 text-sm text-slate-500">Sign in with your work email</p>
+        <p className="mt-1 text-sm text-slate-500">
+          {step === "email" ? "Sign in with your work email" : `Enter the code sent to ${email}`}
+        </p>
 
-        {sent ? (
-          <div className="mt-6 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-200">
-            If <strong>{email}</strong> is registered, a one-time sign-in link is on its way.
-            Open it on this device to continue. You can close this tab.
-          </div>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        {step === "email" ? (
+          <form onSubmit={sendCode} className="mt-6 space-y-4">
             <div>
               <label className="label">Email</label>
               <input
@@ -64,7 +73,38 @@ export default function LoginPage() {
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button className="btn-primary w-full" disabled={loading}>
-              {loading ? "Sending link…" : "Email me a login link"}
+              {loading ? "Sending code…" : "Email me a sign-in code"}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={verifyCode} className="mt-6 space-y-4">
+            <div>
+              <label className="label">6-digit code</label>
+              <input
+                className="input tracking-[0.4em] text-center text-lg"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="••••••"
+                autoFocus
+              />
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <button className="btn-primary w-full" disabled={loading || code.length < 6}>
+              {loading ? "Verifying…" : "Verify & sign in"}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost w-full text-xs"
+              onClick={() => {
+                setStep("email");
+                setCode("");
+                setError(null);
+              }}
+            >
+              ← Use a different email
             </button>
           </form>
         )}
