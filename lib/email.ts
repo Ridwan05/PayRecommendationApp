@@ -3,15 +3,27 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { naira } from "@/lib/format";
 import type { Recommendation } from "@/lib/types";
 
+// Always copied on every notification.
+const ALWAYS_CC = "people@dreef.org";
+
 // ---------------------------------------------------------------------------
 // Low-level sender — posts to the Resend REST API. If email env vars are not
 // configured the call is a no-op (logged), so the core workflow never breaks
-// just because notifications aren't set up. Sends both HTML and plain text.
+// just because notifications aren't set up. Sends both HTML and plain text,
+// and always CCs ALWAYS_CC.
 // ---------------------------------------------------------------------------
 async function sendEmail(opts: { to: string[]; subject: string; html: string; text: string }) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
-  const to = opts.to.filter(Boolean);
+  let to = opts.to.filter(Boolean);
+
+  // people@dreef.org is always copied; skip the CC if it's already a recipient.
+  let cc = to.some((a) => a.toLowerCase() === ALWAYS_CC) ? [] : [ALWAYS_CC];
+  // If there's no primary recipient, send directly to the copy address instead.
+  if (to.length === 0) {
+    to = cc;
+    cc = [];
+  }
 
   if (!apiKey || !from) {
     console.warn("[email] RESEND_API_KEY / EMAIL_FROM not set — skipping:", opts.subject);
@@ -29,7 +41,14 @@ async function sendEmail(opts: { to: string[]; subject: string; html: string; te
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from, to, subject: opts.subject, html: opts.html, text: opts.text }),
+      body: JSON.stringify({
+        from,
+        to,
+        ...(cc.length ? { cc } : {}),
+        subject: opts.subject,
+        html: opts.html,
+        text: opts.text,
+      }),
     });
     if (!res.ok) {
       console.error("[email] Resend error:", res.status, await res.text());
@@ -123,11 +142,9 @@ export async function notifyCeoOfPending(rec: Recommendation, isNew: boolean) {
   });
 }
 
-// CEO approved/rejected → notify the HR author (and any admins).
+// CEO approved/rejected → notify the HR author only (admins excluded).
 export async function notifyHrOfDecision(rec: Recommendation) {
-  const to = Array.from(
-    new Set([...(await emailForUser(rec.created_by)), ...(await emailsForRole("admin"))])
-  );
+  const to = await emailForUser(rec.created_by);
   const approved = rec.status === "approved";
   const heading = approved ? "Your recommendation was approved" : "Your recommendation was rejected";
   const decision = approved ? "approved" : "rejected";
