@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const role = (profile?.role ?? "hr") as Role;
   const canCreate = role === "hr" || role === "admin";
+  const canReview = role === "ceo" || role === "admin";
   const isAdmin = role === "admin";
 
   return (
@@ -32,6 +33,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="hidden truncate sm:inline">Pay Recommendation App</span>
           </Link>
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            {canReview && (
+              <Link href="/pending" className="text-xs font-medium text-slate-600 hover:text-brand">
+                Pending
+              </Link>
+            )}
             {isAdmin && (
               <Link href="/users" className="text-xs font-medium text-slate-600 hover:text-brand">
                 Users

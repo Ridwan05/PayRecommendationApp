@@ -4,6 +4,6 @@
 update public.profiles set role = 'admin' where email = 'ryussuf@dreef.org';
 update public.profiles set role = 'ceo'   where email = 'cazubike@infracredit.ng';
 update public.profiles set role = 'hr'    where email = 'mbernard@dreef.org';
-
+update public.profiles set role = 'hr'    where email = 'vbabalola@dreef.org';
 -- Verify:
 -- select email, role from public.profiles order by role;

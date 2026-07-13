@@ -72,33 +72,36 @@ function detailLines(rec: Recommendation): [string, string][] {
   return lines;
 }
 
-function renderHtml(heading: string, bodyHtml: string, rec: Recommendation) {
-  const rows = detailLines(rec)
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:4px 12px 4px 0;color:#64748b">${label}</td><td style="padding:4px 0;font-weight:600">${value}</td></tr>`
-    )
-    .join("");
-  const link = appUrl(`/r/${rec.id}`);
-  const cta = process.env.NEXT_PUBLIC_APP_URL
-    ? `<p style="margin:20px 0"><a href="${link}" style="background:#4f46e5;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-size:14px">View recommendation</a></p>`
+type Cta = { href: string; label: string; rec?: Recommendation };
+
+function renderHtml(heading: string, bodyHtml: string, cta: Cta) {
+  const rows = cta.rec
+    ? `<table style="font-size:14px;margin-top:12px;border-collapse:collapse">${detailLines(cta.rec)
+        .map(
+          ([label, value]) =>
+            `<tr><td style="padding:4px 12px 4px 0;color:#64748b">${label}</td><td style="padding:4px 0;font-weight:600">${value}</td></tr>`
+        )
+        .join("")}</table>`
+    : "";
+  const button = process.env.NEXT_PUBLIC_APP_URL
+    ? `<p style="margin:20px 0"><a href="${appUrl(cta.href)}" style="background:#4f46e5;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-size:14px">${cta.label}</a></p>`
     : "";
   return `
   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;max-width:560px">
     <h2 style="font-size:18px;margin:0 0 4px">${heading}</h2>
     ${bodyHtml}
-    <table style="font-size:14px;margin-top:12px;border-collapse:collapse">${rows}</table>
-    ${cta}
+    ${rows}
+    ${button}
     <p style="color:#94a3b8;font-size:12px;margin-top:24px">Pay Recommendation App — automated notification.</p>
   </div>`;
 }
 
-function renderText(heading: string, bodyText: string, rec: Recommendation) {
-  const rows = detailLines(rec)
-    .map(([label, value]) => `${label}: ${value}`)
-    .join("\n");
-  const link = process.env.NEXT_PUBLIC_APP_URL ? `\n\nView: ${appUrl(`/r/${rec.id}`)}` : "";
-  return `${heading}\n\n${bodyText}\n\n${rows}${link}\n\n— Pay Recommendation App (automated notification)`;
+function renderText(heading: string, bodyText: string, cta: Cta) {
+  const rows = cta.rec
+    ? "\n\n" + detailLines(cta.rec).map(([label, value]) => `${label}: ${value}`).join("\n")
+    : "";
+  const link = process.env.NEXT_PUBLIC_APP_URL ? `\n\n${cta.label}: ${appUrl(cta.href)}` : "";
+  return `${heading}\n\n${bodyText}${rows}${link}\n\n— Pay Recommendation App (automated notification)`;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,22 +126,32 @@ async function emailForUser(userId: string | null): Promise<string[]> {
 // Public notification API — called from server actions.
 // ---------------------------------------------------------------------------
 
-// New or edited recommendation is now Pending → notify the CEO only.
-export async function notifyCeoOfPending(rec: Recommendation, isNew: boolean) {
-  // Only the CEO (the approver) is notified — admins are intentionally excluded.
+const PENDING_CTA = { href: "/pending", label: "Review pending recommendations" };
+
+// One or more new recommendations submitted → notify the CEO, link to the list.
+export async function notifyCeoOfNewBatch(count: number) {
   const to = await emailsForRole("ceo");
-  const verb = isNew ? "submitted" : "updated and resubmitted";
-  const heading = "Recommendation awaiting your approval";
-  const bodyText = `A pay recommendation for ${rec.staff_name} was ${verb} and is now pending your decision.`;
+  const n = `${count} pay recommendation${count === 1 ? "" : "s"}`;
+  const heading = "Recommendations awaiting your approval";
+  const bodyText = `${n} ${count === 1 ? "was" : "were"} submitted and ${count === 1 ? "is" : "are"} now pending your decision.`;
   await sendEmail({
     to,
-    subject: `Pay recommendation ${isNew ? "awaiting approval" : "resubmitted"}: ${rec.staff_name}`,
-    html: renderHtml(
-      heading,
-      `<p style="font-size:14px">A pay recommendation for <strong>${rec.staff_name}</strong> was ${verb} and is now pending your decision.</p>`,
-      rec
-    ),
-    text: renderText(heading, bodyText, rec),
+    subject: `${n} awaiting approval`,
+    html: renderHtml(heading, `<p style="font-size:14px">${bodyText}</p>`, PENDING_CTA),
+    text: renderText(heading, bodyText, PENDING_CTA),
+  });
+}
+
+// A rejected recommendation was edited and resubmitted → notify the CEO.
+export async function notifyCeoOfResubmit(rec: Recommendation) {
+  const to = await emailsForRole("ceo");
+  const heading = "Recommendation resubmitted for approval";
+  const bodyText = `The recommendation for ${rec.staff_name} was updated and resubmitted, and is now pending your decision.`;
+  await sendEmail({
+    to,
+    subject: `Pay recommendation resubmitted: ${rec.staff_name}`,
+    html: renderHtml(heading, `<p style="font-size:14px">${bodyText}</p>`, { ...PENDING_CTA, rec }),
+    text: renderText(heading, bodyText, { ...PENDING_CTA, rec }),
   });
 }
 
@@ -153,18 +166,19 @@ export async function notifyHrOfDecision(rec: Recommendation) {
   const noteHtml = rec.review_note
     ? `<p style="font-size:14px"><strong>Note:</strong> ${rec.review_note}</p>`
     : "";
+  const cta = { href: `/r/${rec.id}`, label: "View recommendation", rec };
   await sendEmail({
     to,
     subject: `Pay recommendation ${decision}: ${rec.staff_name}`,
     html: renderHtml(
       heading,
       `<p style="font-size:14px">The recommendation for <strong>${rec.staff_name}</strong> was <strong>${decision}</strong>.${resubmitHint}</p>${noteHtml}`,
-      rec
+      cta
     ),
     text: renderText(
       heading,
       `The recommendation for ${rec.staff_name} was ${decision}.${resubmitHint}${noteText}`,
-      rec
+      cta
     ),
   });
 }
